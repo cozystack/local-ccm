@@ -2,17 +2,14 @@
 
 image:
   repository: ghcr.io/cozystack/local-ccm
-  tag: v0.1.0
+  tag: v0.2.0
   pullPolicy: Always
-
 # Service account configuration
 serviceAccount:
   create: true
   name: local-ccm
-
 # Namespace where local-ccm will be deployed
 namespace: kube-system
-
 # IP detection configuration
 ipDetection:
   # Target IP for external IP detection via 'ip route get'
@@ -20,7 +17,6 @@ ipDetection:
   # Target IP for internal IP detection via 'ip route get'
   # If empty, internal IP detection is disabled and kubelet's InternalIP is preserved
   internalIPTarget: ""
-
 # Controller configuration
 controller:
   # Remove node.cloudprovider.kubernetes.io/uninitialized taint
@@ -29,7 +25,6 @@ controller:
   reconcileInterval: 10s
   # Verbosity level (0-5)
   verbosity: 2
-
 # Pod resources
 resources:
   requests:
@@ -38,19 +33,16 @@ resources:
   limits:
     cpu: 100m
     memory: 64Mi
-
 # Security context for the container
 securityContext:
   capabilities:
     add:
-      - NET_ADMIN  # Required for netlink route queries
+      - NET_ADMIN # Required for netlink route queries
       - NET_RAW
-  runAsUser: 0  # Must run as root to access netlink
-
+  runAsUser: 0 # Must run as root to access netlink
 # Tolerations - by default tolerate all taints to run on every node
 tolerations:
   - operator: Exists
-
 # Node affinity configuration
 affinity:
   nodeAffinity:
@@ -61,9 +53,7 @@ affinity:
           matchExpressions:
             - key: node.cloudprovider.kubernetes.io/uninitialized
               operator: Exists
-
 # Additional labels for all resources
 labels: {}
-
 # Additional annotations for pods
 podAnnotations: {}
