@@ -4,7 +4,7 @@
 *.dll
 *.so
 *.dylib
-local-ccm
+/local-ccm
 
 # Test binary, built with `go test -c`
 *.test
