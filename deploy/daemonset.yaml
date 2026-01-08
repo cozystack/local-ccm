@@ -1,0 +1,68 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: local-ccm
+  namespace: kube-system
+  labels:
+    app: local-ccm
+    component: node-controller
+spec:
+  selector:
+    matchLabels:
+      app: local-ccm
+  template:
+    metadata:
+      labels:
+        app: local-ccm
+        component: node-controller
+    spec:
+      serviceAccountName: local-ccm
+      hostNetwork: true  # Required to access host network interfaces
+      dnsPolicy: ClusterFirstWithHostNet
+
+      # Tolerate all taints to run on every node
+      tolerations:
+      - operator: Exists
+
+      # Prefer to schedule on nodes needing initialization first
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node.cloudprovider.kubernetes.io/uninitialized
+                operator: Exists
+
+      containers:
+      - name: local-ccm
+        image: ghcr.io/cozystack/local-ccm:v0.1.0
+        imagePullPolicy: Always
+        command:
+        - /usr/local/bin/local-ccm
+        args:
+        - --node-name=$(NODE_NAME)
+        - --external-ip-target=8.8.8.8
+        # - --internal-ip-target=10.0.0.1  # Uncomment and set to enable internal IP detection
+        - --remove-taint=true
+        - --reconcile-interval=10s
+        - --v=2
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN  # Required for netlink route queries
+            - NET_RAW
+          runAsUser: 0  # Must run as root to access netlink
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
