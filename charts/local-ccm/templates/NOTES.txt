@@ -2,19 +2,19 @@ Thank you for installing {{ .Chart.Name }}!
 
 Your release is named {{ .Release.Name }}.
 
-The local-ccm DaemonSet has been deployed to namespace {{ .Values.namespace }}.
+The local-ccm DaemonSet has been deployed to namespace {{ .Release.Namespace }}.
 
 To check the status of the DaemonSet:
 
-  kubectl --namespace {{ .Values.namespace }} get daemonset {{ include "local-ccm.fullname" . }}
+  kubectl --namespace {{ .Release.Namespace }} get daemonset {{ include "local-ccm.fullname" . }}
 
 To view the pods:
 
-  kubectl --namespace {{ .Values.namespace }} get pods -l "{{ include "local-ccm.selectorLabels" . | replace "\n" "," }}"
+  kubectl --namespace {{ .Release.Namespace }} get pods -l "{{ include "local-ccm.selectorLabels" . | replace "\n" "," }}"
 
 To check logs from a specific pod:
 
-  kubectl --namespace {{ .Values.namespace }} logs -l app=local-ccm -c local-ccm
+  kubectl --namespace {{ .Release.Namespace }} logs -l app=local-ccm -c local-ccm
 
 Configuration:
   - External IP detection target: {{ .Values.ipDetection.externalIPTarget }}

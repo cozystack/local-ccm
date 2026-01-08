@@ -59,7 +59,6 @@ helm install local-ccm ./charts/local-ccm \
 | `image.pullPolicy` | Image pull policy | `Always` |
 | `serviceAccount.create` | Create service account | `true` |
 | `serviceAccount.name` | Service account name | `local-ccm` |
-| `namespace` | Namespace for deployment | `kube-system` |
 | `ipDetection.externalIPTarget` | Target IP for external IP detection | `8.8.8.8` |
 | `ipDetection.internalIPTarget` | Target IP for internal IP detection (empty = disabled) | `""` |
 | `controller.removeTaint` | Remove uninitialized taint | `true` |

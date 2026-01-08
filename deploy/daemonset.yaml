@@ -34,7 +34,7 @@ spec:
                     operator: Exists
       containers:
         - name: local-ccm
-          image: ghcr.io/cozystack/local-ccm:v0.2.0
+          image: ghcr.io/cozystack/local-ccm:v0.2.1
           imagePullPolicy: Always
           command:
             - /usr/local/bin/local-ccm

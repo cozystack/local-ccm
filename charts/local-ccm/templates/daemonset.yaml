@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: {{ include "local-ccm.fullname" . }}
-  namespace: {{ .Values.namespace }}
   labels:
     {{- include "local-ccm.labels" . | nindent 4 }}
 spec:
