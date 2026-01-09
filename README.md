@@ -65,12 +65,14 @@ kubectl get node <node-name> -o jsonpath='{.status.addresses}' | jq
 
 ### Talos Linux
 
-For Talos Linux clusters, use the built-in external cloud provider configuration:
+For Talos Linux clusters, use the following configuration:
 
 ```yaml
+machine:
+  kubelet:
+    extraArgs:
+      cloud-provider: external
 cluster:
-  externalCloudProvider:
-    enabled: true
   manifests:
   - url: https://raw.githubusercontent.com/cozystack/local-ccm/main/deploy/rbac.yaml
   - url: https://raw.githubusercontent.com/cozystack/local-ccm/main/deploy/daemonset.yaml
