@@ -16,7 +16,7 @@ image: image-local-ccm image-nlc
 # Build local-ccm image
 image-local-ccm:
 	docker buildx build . \
-		--file Dockerfile \
+		--target local-ccm \
 		--tag $(REGISTRY)/local-ccm:$(TAG) \
 		--cache-from type=registry,ref=$(REGISTRY)/local-ccm:latest \
 		$(BUILDX_ARGS)
@@ -30,7 +30,7 @@ image-local-ccm:
 # Build node-lifecycle-controller image
 image-nlc:
 	docker buildx build . \
-		--file Dockerfile.node-lifecycle-controller \
+		--target node-lifecycle-controller \
 		--tag $(REGISTRY)/node-lifecycle-controller:$(TAG) \
 		--cache-from type=registry,ref=$(REGISTRY)/node-lifecycle-controller:latest \
 		$(BUILDX_ARGS)
