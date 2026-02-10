@@ -62,7 +62,7 @@ nodeLifecycleController:
   enabled: true
 
   image:
-    repository: ghcr.io/cozystack/node-lifecycle-controller
+    repository: ghcr.io/cozystack/local-ccm
     tag: ""  # Defaults to appVersion
     pullPolicy: IfNotPresent
 

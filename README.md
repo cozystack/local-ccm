@@ -94,7 +94,14 @@ kubectl apply -f https://raw.githubusercontent.com/cozystack/local-ccm/main/depl
 kubectl apply -f https://raw.githubusercontent.com/cozystack/local-ccm/main/deploy/daemonset.yaml
 ```
 
-2. Verify deployment:
+2. (Optional) Deploy node-lifecycle-controller:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/cozystack/local-ccm/main/deploy/nlc-rbac.yaml
+kubectl apply -f https://raw.githubusercontent.com/cozystack/local-ccm/main/deploy/nlc-deployment.yaml
+```
+
+3. Verify deployment:
 
 ```bash
 kubectl -n kube-system get ds local-ccm
@@ -296,11 +303,10 @@ CGO_ENABLED=0 go build -o local-ccm ./cmd/local-ccm
 CGO_ENABLED=0 go build -o node-lifecycle-controller ./cmd/node-lifecycle-controller
 ```
 
-### Build Container Images
+### Build Container Image
 
 ```bash
-docker build --target local-ccm -t ghcr.io/cozystack/local-ccm:latest .
-docker build --target node-lifecycle-controller -t ghcr.io/cozystack/node-lifecycle-controller:latest .
+docker build -t ghcr.io/cozystack/local-ccm:latest .
 ```
 
 ## Development
