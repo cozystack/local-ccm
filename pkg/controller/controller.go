@@ -30,15 +30,19 @@ import (
 	"github.com/cozystack/local-ccm/pkg/checker"
 )
 
+// AutoscalerTaintKey is the taint key set by cluster-autoscaler on nodes marked for deletion.
+const AutoscalerTaintKey = "ToBeDeletedByClusterAutoscaler"
+
 // Config holds the controller configuration
 type Config struct {
-	NodeSelector      string
-	ProtectedLabels   string
-	NotReadyTimeout   time.Duration
-	PingTimeout       time.Duration
-	PingCount         int
-	ReconcileInterval time.Duration
-	DryRun            bool
+	NodeSelector         string
+	ProtectedLabels      string
+	NotReadyTimeout      time.Duration
+	PingTimeout          time.Duration
+	PingCount            int
+	ReconcileInterval    time.Duration
+	DryRun               bool
+	WatchAutoscalerTaint bool
 }
 
 // Controller manages node lifecycle
@@ -141,17 +145,32 @@ func (c *Controller) listManagedNodes(ctx context.Context) ([]corev1.Node, error
 		return nil, err
 	}
 
-	// Filter out control-plane nodes
+	// Filter out control-plane nodes and apply taint filtering
+	filterByTaint := c.config.NodeSelector == "" && c.config.WatchAutoscalerTaint
 	var managedNodes []corev1.Node
 	for _, node := range nodeList.Items {
 		if isControlPlane(&node) {
 			klog.V(3).Infof("Skipping control-plane node %s", node.Name)
 			continue
 		}
+		if filterByTaint && !hasAutoscalerTaint(&node) {
+			klog.V(4).Infof("Skipping node %s: missing %s taint", node.Name, AutoscalerTaintKey)
+			continue
+		}
 		managedNodes = append(managedNodes, node)
 	}
 
 	return managedNodes, nil
+}
+
+// hasAutoscalerTaint checks if node has the cluster-autoscaler deletion taint with NoSchedule effect.
+func hasAutoscalerTaint(node *corev1.Node) bool {
+	for _, taint := range node.Spec.Taints {
+		if taint.Key == AutoscalerTaintKey && taint.Effect == corev1.TaintEffectNoSchedule {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Controller) processNode(ctx context.Context, node *corev1.Node) {

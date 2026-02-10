@@ -35,17 +35,18 @@ import (
 )
 
 var (
-	kubeconfig        string
-	nodeSelector      string
-	protectedLabels   string
-	notReadyTimeout   time.Duration
-	pingTimeout       time.Duration
-	pingCount         int
-	reconcileInterval time.Duration
-	leaderElect       bool
-	leaderElectID     string
-	namespace         string
-	dryRun            bool
+	kubeconfig           string
+	nodeSelector         string
+	protectedLabels      string
+	notReadyTimeout      time.Duration
+	pingTimeout          time.Duration
+	pingCount            int
+	reconcileInterval    time.Duration
+	leaderElect          bool
+	leaderElectID        string
+	namespace            string
+	dryRun               bool
+	watchAutoscalerTaint bool
 )
 
 func init() {
@@ -60,6 +61,7 @@ func init() {
 	flag.StringVar(&leaderElectID, "leader-elect-id", "node-lifecycle-controller", "Name of the leader election resource")
 	flag.StringVar(&namespace, "namespace", os.Getenv("POD_NAMESPACE"), "Namespace for leader election (env: POD_NAMESPACE)")
 	flag.BoolVar(&dryRun, "dry-run", false, "Log actions without actually deleting nodes")
+	flag.BoolVar(&watchAutoscalerTaint, "watch-autoscaler-taint", true, "Watch only nodes with ToBeDeletedByClusterAutoscaler taint (ignored when --node-selector is set)")
 
 	klog.InitFlags(nil)
 }
@@ -72,8 +74,8 @@ func main() {
 	}
 
 	klog.Infof("Starting node-lifecycle-controller")
-	klog.Infof("Configuration: nodeSelector=%q protectedLabels=%q notReadyTimeout=%v pingTimeout=%v pingCount=%d dryRun=%v",
-		nodeSelector, protectedLabels, notReadyTimeout, pingTimeout, pingCount, dryRun)
+	klog.Infof("Configuration: nodeSelector=%q protectedLabels=%q notReadyTimeout=%v pingTimeout=%v pingCount=%d dryRun=%v watchAutoscalerTaint=%v",
+		nodeSelector, protectedLabels, notReadyTimeout, pingTimeout, pingCount, dryRun, watchAutoscalerTaint)
 
 	// Create Kubernetes client
 	k8sClient, err := createKubernetesClient(kubeconfig)
@@ -83,13 +85,14 @@ func main() {
 
 	// Create controller
 	ctrl := controller.New(k8sClient, controller.Config{
-		NodeSelector:      nodeSelector,
-		ProtectedLabels:   protectedLabels,
-		NotReadyTimeout:   notReadyTimeout,
-		PingTimeout:       pingTimeout,
-		PingCount:         pingCount,
-		ReconcileInterval: reconcileInterval,
-		DryRun:            dryRun,
+		NodeSelector:         nodeSelector,
+		ProtectedLabels:      protectedLabels,
+		NotReadyTimeout:      notReadyTimeout,
+		PingTimeout:          pingTimeout,
+		PingCount:            pingCount,
+		ReconcileInterval:    reconcileInterval,
+		DryRun:               dryRun,
+		WatchAutoscalerTaint: watchAutoscalerTaint,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
