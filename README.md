@@ -1,21 +1,30 @@
 # local-ccm
 
-A lightweight Kubernetes node IP address controller that runs as a DaemonSet and automatically detects and sets node IP addresses using netlink on bare-metal and on-premise clusters.
+A lightweight Kubernetes cloud controller for bare-metal and on-premise clusters. Provides automatic node IP detection and cleanup of unreachable nodes.
 
 ## Overview
 
-`local-ccm` solves the problem of automatically setting `NodeInternalIP` and `NodeExternalIP` addresses on Kubernetes nodes in environments without a cloud provider. Each node runs its own instance that detects local IP addresses and updates the node object accordingly.
+`local-ccm` includes two components:
+
+- **local-ccm** — a DaemonSet that automatically detects and sets `NodeInternalIP` and `NodeExternalIP` addresses on Kubernetes nodes using netlink API.
+- **node-lifecycle-controller** — a Deployment that monitors NotReady nodes and deletes unreachable ones. Designed to work with cluster-autoscaler by watching nodes with the `ToBeDeletedByClusterAutoscaler` taint.
 
 ### Features
 
+**IP Address Controller (local-ccm):**
 - **DaemonSet Architecture**: Runs on every node, each managing itself
 - **Automatic IP Detection**: Uses netlink API to detect source IP addresses for routing to target
 - **Configurable Targets**: Separate configuration for internal and external IP detection
 - **Non-Destructive Updates**: Preserves existing addresses (Hostname, InternalIP from kubelet), updates only managed fields
 - **Taint Removal**: Automatically removes `node.cloudprovider.kubernetes.io/uninitialized` taint
-- **Minimal Dependencies**: No external tools required, uses native netlink
-- **Lightweight**: Small memory footprint (~32MB per node)
-- **Continuous Reconciliation**: Periodically checks and updates IP addresses
+
+**Node Lifecycle Controller:**
+- **Autoscaler Integration**: Watches nodes tainted with `ToBeDeletedByClusterAutoscaler:NoSchedule` by default
+- **Label Selector Fallback**: Optionally filter by label selector instead of taint
+- **Ping Verification**: ICMP ping check before deleting to avoid false positives
+- **Protected Nodes**: Labels/annotations to protect specific nodes from deletion
+- **Leader Election**: HA-ready with lease-based leader election
+- **Dry-Run Mode**: Test behavior without actually deleting nodes
 
 ## How It Works
 
@@ -33,6 +42,42 @@ A lightweight Kubernetes node IP address controller that runs as a DaemonSet and
 6. Pod removes the initialization taint (if present)
 7. Pod continues to run, reconciling addresses every 10 seconds (configurable)
 
+## Node Lifecycle Controller
+
+The node-lifecycle-controller watches for NotReady nodes and deletes them after they become unreachable. This is useful for cleaning up stale node objects left behind by cluster-autoscaler scale-down operations.
+
+### How It Works
+
+1. Controller lists nodes matching the configured filter (taint or label selector)
+2. Control-plane and protected nodes are always excluded
+3. When a node becomes NotReady, the controller starts tracking it
+4. After `--not-ready-timeout` (default: 5m), the controller pings the node via ICMP
+5. If the node is unreachable, it is deleted from the cluster
+
+### Node Filtering
+
+The controller uses priority-based filtering:
+
+| `--node-selector` | `--watch-autoscaler-taint` | Behavior |
+|---|---|---|
+| set | (ignored) | Only nodes matching label selector |
+| empty | `true` (default) | Only nodes with `ToBeDeletedByClusterAutoscaler:NoSchedule` taint |
+| empty | `false` | All non-control-plane nodes |
+
+### Configuration Options
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--watch-autoscaler-taint` | Watch only nodes with autoscaler deletion taint | `true` |
+| `--node-selector` | Label selector for nodes (overrides taint filter) | `""` |
+| `--protected-labels` | Comma-separated labels that protect nodes from deletion | `""` |
+| `--not-ready-timeout` | Duration a node must be NotReady before deletion | `5m` |
+| `--ping-timeout` | Timeout for ICMP ping checks | `5s` |
+| `--ping-count` | Number of ping attempts | `3` |
+| `--reconcile-interval` | Interval between reconciliation loops | `30s` |
+| `--leader-elect` | Enable leader election | `true` |
+| `--dry-run` | Log actions without deleting | `false` |
+
 ## Installation
 
 ### Prerequisites
@@ -49,7 +94,14 @@ kubectl apply -f https://raw.githubusercontent.com/cozystack/local-ccm/main/depl
 kubectl apply -f https://raw.githubusercontent.com/cozystack/local-ccm/main/deploy/daemonset.yaml
 ```
 
-2. Verify deployment:
+2. (Optional) Deploy node-lifecycle-controller:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/cozystack/local-ccm/main/deploy/nlc-rbac.yaml
+kubectl apply -f https://raw.githubusercontent.com/cozystack/local-ccm/main/deploy/nlc-deployment.yaml
+```
+
+3. Verify deployment:
 
 ```bash
 kubectl -n kube-system get ds local-ccm
@@ -61,6 +113,29 @@ kubectl -n kube-system get pods -l app=local-ccm
 ```bash
 kubectl get nodes -o wide
 kubectl get node <node-name> -o jsonpath='{.status.addresses}' | jq
+```
+
+### Deploy with Helm
+
+The Helm chart deploys both local-ccm and node-lifecycle-controller:
+
+```bash
+helm install local-ccm ./charts/local-ccm --namespace kube-system
+```
+
+The node-lifecycle-controller is enabled by default. To configure it:
+
+```yaml
+# values.yaml
+nodeLifecycleController:
+  enabled: true
+  controller:
+    watchAutoscalerTaint: true   # Watch nodes with autoscaler taint (default)
+    # nodeSelector: ""           # Set to use label selector instead
+    # protectedLabels: "kilo.squat.ai/leader"
+    notReadyTimeout: 5m
+    pingCount: 3
+    dryRun: false
 ```
 
 ### Talos Linux
@@ -173,21 +248,6 @@ kind: KubeletConfiguration
 cloudProvider: external
 ```
 
-## Command-Line Flags
-
-The `local-ccm` binary supports the following flags:
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--node-name` | Name of the node to update (env: NODE_NAME) | Required |
-| `--internal-ip-target` | Target IP for internal IP detection. If empty, disabled | `""` |
-| `--external-ip-target` | Target IP for external IP detection | `"8.8.8.8"` |
-| `--remove-taint` | Remove node.cloudprovider.kubernetes.io/uninitialized taint | `true` |
-| `--run-once` | Run once and exit instead of running in a loop | `false` |
-| `--reconcile-interval` | Interval between reconciliation loops | `10s` |
-| `--kubeconfig` | Path to kubeconfig file (for local testing) | In-cluster config |
-| `--v` | Log level (0-5) | `0` |
-
 ## Architecture
 
 ```
@@ -236,12 +296,11 @@ The `local-ccm` binary supports the following flags:
 
 ## Building
 
-### Build Binary
+### Build Binaries
 
 ```bash
-cd local-ccm
-go mod tidy
-GOWORK=off CGO_ENABLED=0 go build -o local-ccm ./cmd/local-ccm
+CGO_ENABLED=0 go build -o local-ccm ./cmd/local-ccm
+CGO_ENABLED=0 go build -o node-lifecycle-controller ./cmd/node-lifecycle-controller
 ```
 
 ### Build Container Image
@@ -257,17 +316,25 @@ docker build -t ghcr.io/cozystack/local-ccm:latest .
 ```
 local-ccm/
 ├── cmd/
-│   └── local-ccm/
-│       └── main.go           # Main entrypoint
+│   ├── local-ccm/
+│   │   └── main.go                # IP controller entrypoint
+│   └── node-lifecycle-controller/
+│       └── main.go                # NLC entrypoint
 ├── pkg/
+│   ├── detector/
+│   │   └── ip_detector.go         # IP detection via netlink
 │   ├── node/
-│   │   └── updater.go        # Node address/taint updater
-│   └── detector/
-│       └── ip_detector.go    # IP detection logic
+│   │   └── updater.go             # Node address/taint updater
+│   ├── controller/
+│   │   └── controller.go          # Node lifecycle controller logic
+│   └── checker/
+│       └── checker.go             # ICMP reachability checker
+├── charts/
+│   └── local-ccm/                 # Helm chart
 ├── deploy/
-│   ├── rbac.yaml            # ServiceAccount + ClusterRole
-│   └── daemonset.yaml       # DaemonSet
-├── Containerfile
+│   ├── rbac.yaml                  # Static manifests (local-ccm only)
+│   └── daemonset.yaml
+├── Dockerfile
 ├── go.mod
 └── README.md
 ```

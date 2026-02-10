@@ -48,8 +48,9 @@ spec:
         image: "{{ .Values.nodeLifecycleController.image.repository }}:{{ .Values.nodeLifecycleController.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.nodeLifecycleController.image.pullPolicy }}
         command:
-        - /node-lifecycle-controller
+        - /usr/local/bin/node-lifecycle-controller
         args:
+        - --watch-autoscaler-taint={{ .Values.nodeLifecycleController.controller.watchAutoscalerTaint }}
         {{- if .Values.nodeLifecycleController.controller.nodeSelector }}
         - --node-selector={{ .Values.nodeLifecycleController.controller.nodeSelector }}
         {{- end }}

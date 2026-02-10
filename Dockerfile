@@ -1,7 +1,8 @@
-# Multi-stage build for local-ccm
-
 # Build stage
-FROM golang:1.23 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.23 AS builder
+
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /workspace
 
@@ -15,24 +16,25 @@ RUN go mod download
 COPY cmd/ cmd/
 COPY pkg/ pkg/
 
-# Build the binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+# Build both binaries
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build \
     -ldflags="-w -s" \
     -o local-ccm \
     ./cmd/local-ccm
 
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build \
+    -ldflags="-w -s" \
+    -o node-lifecycle-controller \
+    ./cmd/node-lifecycle-controller
+
 # Runtime stage
 FROM alpine:3.19
 
-# Install required packages:
-# - ca-certificates: for HTTPS connections to Kubernetes API
 RUN apk add --no-cache ca-certificates
 
-# Copy the binary from builder
 COPY --from=builder /workspace/local-ccm /usr/local/bin/local-ccm
+COPY --from=builder /workspace/node-lifecycle-controller /usr/local/bin/node-lifecycle-controller
 
-# local-ccm needs to run as root to access netlink
-# which requires NET_ADMIN capability
-USER root
+USER 0
 
 ENTRYPOINT ["/usr/local/bin/local-ccm"]
