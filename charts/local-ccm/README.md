@@ -7,6 +7,7 @@ Local Cloud Controller Manager for Kubernetes - automatically detects and manage
 - Automatic node IP address detection using routing table
 - Support for both internal and external IP detection
 - Automatic removal of cloud provider initialization taint
+- Azure provider ID detection for cluster-autoscaler integration
 - Minimal resource footprint
 - Runs as DaemonSet on all nodes
 
@@ -50,6 +51,17 @@ helm install local-ccm ./charts/local-ccm \
   --set ipDetection.internalIPTarget=10.0.0.1
 ```
 
+### Azure Configuration
+
+For Azure environments with cluster-autoscaler:
+
+```yaml
+azure:
+  enableProviderID: true
+```
+
+This enables automatic detection and setting of `spec.providerID` on Azure nodes, which is required for cluster-autoscaler to properly track and manage nodes.
+
 ## Configuration
 
 | Parameter | Description | Default |
@@ -64,6 +76,7 @@ helm install local-ccm ./charts/local-ccm \
 | `controller.removeTaint` | Remove uninitialized taint | `true` |
 | `controller.reconcileInterval` | Reconciliation interval | `10s` |
 | `controller.verbosity` | Log verbosity level (0-5) | `2` |
+| `azure.enableProviderID` | Enable Azure provider ID detection via IMDS | `false` |
 | `resources.requests.cpu` | CPU resource requests | `10m` |
 | `resources.requests.memory` | Memory resource requests | `32Mi` |
 | `resources.limits.cpu` | CPU resource limits | `100m` |
