@@ -34,13 +34,14 @@ import (
 )
 
 var (
-	nodeName          string
-	kubeconfig        string
-	internalIPTarget  string
-	externalIPTarget  string
-	runOnce           bool
-	removeTaint       bool
-	reconcileInterval time.Duration
+	nodeName             string
+	kubeconfig           string
+	internalIPTarget     string
+	externalIPTarget     string
+	runOnce              bool
+	removeTaint          bool
+	reconcileInterval    time.Duration
+	enableAzureProviderID bool
 )
 
 func init() {
@@ -51,6 +52,7 @@ func init() {
 	flag.BoolVar(&runOnce, "run-once", false, "Run once and exit instead of running in a loop")
 	flag.BoolVar(&removeTaint, "remove-taint", true, "Remove node.cloudprovider.kubernetes.io/uninitialized taint")
 	flag.DurationVar(&reconcileInterval, "reconcile-interval", 10*time.Second, "Interval between reconciliation loops")
+	flag.BoolVar(&enableAzureProviderID, "enable-azure-provider-id", false, "Enable Azure provider ID detection via IMDS")
 
 	klog.InitFlags(nil)
 }
@@ -63,8 +65,8 @@ func main() {
 	}
 
 	klog.Infof("Starting local-ccm for node %s", nodeName)
-	klog.V(2).Infof("Configuration: internalIPTarget=%q externalIPTarget=%q",
-		internalIPTarget, externalIPTarget)
+	klog.V(2).Infof("Configuration: internalIPTarget=%q externalIPTarget=%q azureProviderID=%v",
+		internalIPTarget, externalIPTarget, enableAzureProviderID)
 
 	// Create Kubernetes client
 	k8sClient, err := createKubernetesClient(kubeconfig)
@@ -155,6 +157,21 @@ func reconcile(ctx context.Context, nodeUpdater *node.Updater) error {
 		klog.Info("Addresses changed, updating node")
 		if err := nodeUpdater.UpdateAddresses(ctx, addresses); err != nil {
 			return fmt.Errorf("failed to update addresses: %w", err)
+		}
+	}
+
+	// Set Azure provider ID if enabled
+	if enableAzureProviderID {
+		providerID, err := detector.DetectAzureProviderID(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to detect Azure provider ID: %w", err)
+		}
+		if providerID != "" {
+			if err := nodeUpdater.UpdateProviderID(ctx, providerID); err != nil {
+				return fmt.Errorf("failed to update provider ID: %w", err)
+			}
+		} else {
+			klog.V(3).Info("Azure provider ID not detected (not running in Azure)")
 		}
 	}
 
