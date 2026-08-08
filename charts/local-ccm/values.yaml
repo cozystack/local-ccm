@@ -23,6 +23,12 @@ controller:
   reconcileInterval: 10s
   # Verbosity level (0-5)
   verbosity: 2
+# Azure-specific configuration
+azure:
+  # Enable Azure provider ID detection via Instance Metadata Service (IMDS)
+  # When enabled, the controller will automatically detect and set spec.providerID
+  # on Azure nodes, which is required for cluster-autoscaler to properly track nodes
+  enableProviderID: false
 # Pod resources
 resources:
   requests:

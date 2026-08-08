@@ -43,6 +43,9 @@ spec:
         - --remove-taint={{ .Values.controller.removeTaint }}
         - --reconcile-interval={{ .Values.controller.reconcileInterval }}
         - --v={{ .Values.controller.verbosity }}
+        {{- if .Values.azure.enableProviderID }}
+        - --enable-azure-provider-id=true
+        {{- end }}
         env:
         - name: NODE_NAME
           valueFrom:

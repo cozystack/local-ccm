@@ -17,6 +17,7 @@ A lightweight Kubernetes cloud controller for bare-metal and on-premise clusters
 - **Configurable Targets**: Separate configuration for internal and external IP detection
 - **Non-Destructive Updates**: Preserves existing addresses (Hostname, InternalIP from kubelet), updates only managed fields
 - **Taint Removal**: Automatically removes `node.cloudprovider.kubernetes.io/uninitialized` taint
+- **Azure Provider ID Support**: Automatic detection and setup of `spec.providerID` for Azure nodes via IMDS
 
 **Node Lifecycle Controller:**
 - **Autoscaler Integration**: Watches nodes tainted with `ToBeDeletedByClusterAutoscaler:NoSchedule` by default
@@ -179,6 +180,7 @@ The following command-line flags are available:
 | `--remove-taint` | Remove node.cloudprovider.kubernetes.io/uninitialized taint | `true` | No |
 | `--reconcile-interval` | Interval between reconciliation loops | `10s` | No |
 | `--run-once` | Run once and exit instead of running in a loop | `false` | No |
+| `--enable-azure-provider-id` | Enable Azure provider ID detection via IMDS | `false` | No |
 | `--kubeconfig` | Path to kubeconfig file (for local testing only) | In-cluster config | No |
 | `--v` | Log level (0-5) | `0` | No |
 
@@ -223,6 +225,18 @@ Result:
   ]
 }
 ```
+
+#### Azure Provider ID (for cluster-autoscaler)
+
+```yaml
+args:
+- --node-name=$(NODE_NAME)
+- --external-ip-target=8.8.8.8
+- --enable-azure-provider-id=true
+- --reconcile-interval=10s
+```
+
+This configuration enables automatic detection and setup of `spec.providerID` on Azure nodes. The controller queries Azure Instance Metadata Service (IMDS) to retrieve the resource ID and sets it as the node's provider ID. This is required for Azure cluster-autoscaler to properly track and manage nodes.
 
 After updating the DaemonSet args, restart the pods:
 

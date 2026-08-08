@@ -147,3 +147,57 @@ func (u *Updater) RemoveTaint(ctx context.Context) error {
 func (u *Updater) GetNode(ctx context.Context) (*v1.Node, error) {
 	return u.client.CoreV1().Nodes().Get(ctx, u.nodeName, metav1.GetOptions{})
 }
+
+// UpdateProviderID updates the node's spec.providerID
+func (u *Updater) UpdateProviderID(ctx context.Context, providerID string) error {
+	klog.V(2).Infof("Updating providerID for node %s: %s", u.nodeName, providerID)
+
+	// Get current node to check if update is needed
+	node, err := u.GetNode(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get node: %w", err)
+	}
+
+	// Check if providerID is already set correctly
+	if node.Spec.ProviderID == providerID {
+		klog.V(3).Infof("ProviderID already set correctly on node %s, skipping update", u.nodeName)
+		return nil
+	}
+
+	// Log if we're overwriting an existing providerID
+	if node.Spec.ProviderID != "" {
+		klog.Warningf("Overwriting existing providerID on node %s: %s -> %s",
+			u.nodeName, node.Spec.ProviderID, providerID)
+	}
+
+	// Create JSON patch for providerID
+	patch := []map[string]interface{}{
+		{
+			"op":    "replace",
+			"path":  "/spec/providerID",
+			"value": providerID,
+		},
+	}
+
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return fmt.Errorf("failed to marshal patch: %w", err)
+	}
+
+	klog.V(4).Infof("Applying providerID patch to node %s: %s", u.nodeName, string(patchBytes))
+
+	// Apply patch
+	_, err = u.client.CoreV1().Nodes().Patch(
+		ctx,
+		u.nodeName,
+		types.JSONPatchType,
+		patchBytes,
+		metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to patch node providerID: %w", err)
+	}
+
+	klog.Infof("Successfully updated providerID for node %s to %s", u.nodeName, providerID)
+	return nil
+}
