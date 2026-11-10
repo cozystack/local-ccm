@@ -59,8 +59,8 @@ helm install local-ccm ./charts/local-ccm \
 | `image.pullPolicy` | Image pull policy | `Always` |
 | `serviceAccount.create` | Create service account | `true` |
 | `serviceAccount.name` | Service account name | `local-ccm` |
-| `ipDetection.externalIPTarget` | Target IP for external IP detection | `8.8.8.8` |
-| `ipDetection.internalIPTarget` | Target IP for internal IP detection (empty = disabled) | `""` |
+| `ipDetection.externalIPTarget` | Target IP(s) for external IP detection. | `[8.8.8.8]` |
+| `ipDetection.internalIPTarget` | Target IP(s) for internal IP detection (empty = disabled) | `[]` |
 | `controller.removeTaint` | Remove uninitialized taint | `true` |
 | `controller.reconcileInterval` | Reconciliation interval | `10s` |
 | `controller.verbosity` | Log verbosity level (0-5) | `2` |

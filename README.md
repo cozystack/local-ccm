@@ -14,7 +14,7 @@ A lightweight Kubernetes cloud controller for bare-metal and on-premise clusters
 **IP Address Controller (local-ccm):**
 - **DaemonSet Architecture**: Runs on every node, each managing itself
 - **Automatic IP Detection**: Uses netlink API to detect source IP addresses for routing to target
-- **Configurable Targets**: Separate configuration for internal and external IP detection
+- **Configurable Targets**: Separate configuration for internal and external IP detection, supports multiple targets for dual-stack clusters
 - **Non-Destructive Updates**: Preserves existing addresses (Hostname, InternalIP from kubelet), updates only managed fields
 - **Taint Removal**: Automatically removes `node.cloudprovider.kubernetes.io/uninitialized` taint
 
@@ -174,8 +174,8 @@ The following command-line flags are available:
 | Flag | Description | Default | Required |
 |------|-------------|---------|----------|
 | `--node-name` | Name of the node to update (use NODE_NAME env var) | - | Yes |
-| `--internal-ip-target` | Target IP for internal IP detection via netlink. If empty, internal IP detection is disabled | `""` (disabled) | No |
-| `--external-ip-target` | Target IP for external IP detection via netlink | `"8.8.8.8"` | No |
+| `--internal-ip-target` | Target IP(s) for internal IP detection via netlink. If empty, internal IP detection is disabled | `""` (disabled) | No |
+| `--external-ip-target` | Target IP(s) for external IP detection via netlink | `"8.8.8.8"` | No |
 | `--remove-taint` | Remove node.cloudprovider.kubernetes.io/uninitialized taint | `true` | No |
 | `--reconcile-interval` | Interval between reconciliation loops | `10s` | No |
 | `--run-once` | Run once and exit instead of running in a loop | `false` | No |
@@ -190,6 +190,7 @@ The following command-line flags are available:
 args:
 - --node-name=$(NODE_NAME)
 - --external-ip-target=8.8.8.8
+# - --external-ip-target=2001:4860:4860::8888 # E.g., dual-stack clusters
 - --reconcile-interval=10s
 ```
 

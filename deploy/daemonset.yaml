@@ -41,6 +41,7 @@ spec:
           args:
             - --node-name=$(NODE_NAME)
             - --external-ip-target=8.8.8.8
+            # - --external-ip-target=2001:4860:4860::8888 # Uncomment for, e.g., dual-stack clusters
             # - --internal-ip-target=10.0.0.1  # Uncomment and set to enable internal IP detection
             - --remove-taint=true
             - --reconcile-interval=10s
@@ -51,11 +52,14 @@ spec:
                 fieldRef:
                   fieldPath: spec.nodeName
           securityContext:
+            # Read-only netlink operations do not require any special privileges
+            runAsUser: 65534
+            runAsGroup: 65534
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
             capabilities:
-              add:
-                - NET_ADMIN # Required for netlink route queries
-                - NET_RAW
-            runAsUser: 0 # Must run as root to access netlink
+              drop: [ALL]
           resources:
             requests:
               cpu: 10m

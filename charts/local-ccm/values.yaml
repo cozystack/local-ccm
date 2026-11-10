@@ -10,11 +10,14 @@ serviceAccount:
   name: local-ccm
 # IP detection configuration
 ipDetection:
-  # Target IP for external IP detection via 'ip route get'
-  externalIPTarget: "8.8.8.8"
-  # Target IP for internal IP detection via 'ip route get'
+  # Target IP(s) for external IP detection via 'ip route get'
+  externalIPTarget:
+    - "8.8.8.8"
+    # E.g. for dual-stack clusters
+    # - "2001:4860:4860::8888"
+  # Target IP(s) for internal IP detection via 'ip route get'
   # If empty, internal IP detection is disabled and kubelet's InternalIP is preserved
-  internalIPTarget: ""
+  internalIPTarget: []
 # Controller configuration
 controller:
   # Remove node.cloudprovider.kubernetes.io/uninitialized taint
@@ -33,11 +36,14 @@ resources:
     memory: 64Mi
 # Security context for the container
 securityContext:
+  # Read-only netlink operations do not require any special privileges
+  runAsUser: 65534
+  runAsGroup: 65534
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
   capabilities:
-    add:
-      - NET_ADMIN # Required for netlink route queries
-      - NET_RAW
-  runAsUser: 0 # Must run as root to access netlink
+    drop: [ALL]
 # Tolerations - by default tolerate all taints to run on every node
 tolerations:
   - operator: Exists
