@@ -36,9 +36,19 @@ spec:
         - /usr/local/bin/local-ccm
         args:
         - --node-name=$(NODE_NAME)
-        - --external-ip-target={{ .Values.ipDetection.externalIPTarget }}
-        {{- if .Values.ipDetection.internalIPTarget }}
-        - --internal-ip-target={{ .Values.ipDetection.internalIPTarget }}
+        {{- $externalIPTargets := .Values.ipDetection.externalIPTarget -}}
+        {{- if not (kindIs "slice" $externalIPTargets) -}}
+        {{- $externalIPTargets = list $externalIPTargets -}}
+        {{- end -}}
+        {{- range $externalIPTargets }}
+        - --external-ip-target={{ . }}
+        {{- end }}
+        {{- $internalIPTargets := .Values.ipDetection.internalIPTarget | default (list) -}}
+        {{- if not (kindIs "slice" $internalIPTargets) -}}
+        {{- $internalIPTargets = list $internalIPTargets -}}
+        {{- end -}}
+        {{- range $internalIPTargets }}
+        - --internal-ip-target={{ . }}
         {{- end }}
         - --remove-taint={{ .Values.controller.removeTaint }}
         - --reconcile-interval={{ .Values.controller.reconcileInterval }}

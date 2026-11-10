@@ -17,49 +17,62 @@ limitations under the License.
 package detector
 
 import (
+	"errors"
 	"fmt"
 	"net"
+	"slices"
+	"syscall"
 
 	"github.com/vishvananda/netlink"
 	"k8s.io/klog/v2"
 )
 
-// DetectIP detects the local IP address by using netlink to query the route
-// to the target IP and extracting the source IP from the route
-func DetectIP(targetIP string) (string, error) {
-	if targetIP == "" {
-		return "", fmt.Errorf("target IP is empty")
+// DetectIPs detects the local IP address by using netlink to query the route
+// to the target IPs and extracting the source IPs from the routes
+func DetectIPs(targetIPs []net.IP) ([]string, error) {
+	var srcIPs []string
+
+	for _, targetIP := range targetIPs {
+		klog.V(4).Infof("Detecting IP using target: %s", targetIP)
+
+		// Get route to target IP using netlink
+		routes, err := netlink.RouteGet(targetIP)
+		if err != nil {
+			if errors.Is(err, syscall.ENETUNREACH) {
+				klog.V(4).Infof("Skipping target due to ENETUNREACH: %s", targetIP)
+				continue
+			}
+
+			return nil, fmt.Errorf("failed to get route to %s: %w", targetIP, err)
+		}
+
+		if len(routes) == 0 {
+			klog.V(4).Infof("No routes to target: %s", targetIP)
+			continue
+		}
+
+		// Get the first route (preferred route)
+		route := routes[0]
+
+		// Extract source IP from route
+		if route.Src == nil {
+			klog.V(4).Infof("Route to %s has no source IP, skipping", targetIP)
+			continue
+		}
+
+		detectedIP := route.Src.String()
+
+		if slices.Contains(srcIPs, detectedIP) {
+			continue
+		}
+
+		klog.V(4).Infof("Detected IP: %s (target: %s)", detectedIP, targetIP)
+		srcIPs = append(srcIPs, detectedIP)
 	}
 
-	// Parse target IP
-	dstIP := net.ParseIP(targetIP)
-	if dstIP == nil {
-		return "", fmt.Errorf("invalid target IP address: %s", targetIP)
+	if len(srcIPs) == 0 {
+		return nil, fmt.Errorf("no route found to any of %v", targetIPs)
 	}
 
-	klog.V(4).Infof("Detecting IP using target: %s", targetIP)
-
-	// Get route to target IP using netlink
-	routes, err := netlink.RouteGet(dstIP)
-	if err != nil {
-		return "", fmt.Errorf("failed to get route to %s: %w", targetIP, err)
-	}
-
-	if len(routes) == 0 {
-		return "", fmt.Errorf("no route found to %s", targetIP)
-	}
-
-	// Get the first route (preferred route)
-	route := routes[0]
-
-	// Extract source IP from route
-	if route.Src == nil {
-		return "", fmt.Errorf("route to %s has no source IP", targetIP)
-	}
-
-	detectedIP := route.Src.String()
-
-	klog.V(4).Infof("Detected IP: %s (target: %s)", detectedIP, targetIP)
-
-	return detectedIP, nil
+	return srcIPs, nil
 }
